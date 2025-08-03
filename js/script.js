@@ -1,199 +1,88 @@
-/**
- * Initialize all functionality when the page loads
- */
-document.addEventListener('DOMContentLoaded', function() {
-    // Set current year in footer
-    setCurrentYear();
-    
-    // Highlight current page in navigation
-    highlightCurrentPage();
-    
-    // Initialize search functionality
-    initSearch();
-    
-    // Initialize image loading
-    initImageLoading();
-    
-    // Initialize mobile detection
-    detectMobile();
+// Set current year in footer
+document.getElementById('current-year').textContent = new Date().getFullYear();
+
+// Toggle sidebar function
+function toggleSidebar() {
+  const sidebar = document.getElementById('sidebar');
+  const content = document.getElementById('mainContent');
+  sidebar.classList.toggle('active');
+  content.classList.toggle('shifted');
+  document.body.classList.toggle('sidebar-active');
+}
+
+// Highlight current page in navigation
+function highlightCurrentPage() {
+  const currentPage = location.pathname.split('/').pop() || 'index.html';
+  document.querySelectorAll('.sidebar-menu li a').forEach(link => {
+    link.classList.remove('active');
+    if (link.getAttribute('href') === currentPage) {
+      link.classList.add('active');
+    }
+  });
+}
+
+// Close sidebar when clicking outside on mobile
+document.addEventListener('click', function(event) {
+  const sidebar = document.getElementById('sidebar');
+  const menuToggle = document.querySelector('.menu-toggle');
+  
+  if (window.innerWidth <= 992 && 
+      !sidebar.contains(event.target) && 
+      event.target !== menuToggle && 
+      !menuToggle.contains(event.target)) {
+    sidebar.classList.remove('active');
+    document.getElementById('mainContent').classList.remove('shifted');
+    document.body.classList.remove('sidebar-active');
+  }
 });
 
-/**
- * Sets the current year in footer copyright
- */
-function setCurrentYear() {
-    const yearElement = document.getElementById('current-year');
-    if (yearElement) {
-        yearElement.textContent = new Date().getFullYear();
-    }
-}
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', function() {
+  highlightCurrentPage();
+  
+  // Show menu toggle on mobile
+  if (window.innerWidth <= 992) {
+    document.querySelector('.menu-toggle').style.display = 'block';
+  }
 
-/**
- * Highlights current page in navigation
- */
-function highlightCurrentPage() {
-    const currentPage = location.pathname.split('/').pop() || 'index.html';
-    document.querySelectorAll('.menu-tab').forEach(tab => {
-        if (tab.getAttribute('href') === currentPage) {
-            tab.classList.add('active');
+  // Lazy load images
+  const lazyImages = document.querySelectorAll('.item-image[data-src]');
+  
+  if ('IntersectionObserver' in window) {
+    const imageObserver = new IntersectionObserver((entries, observer) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          const img = entry.target;
+          img.src = img.dataset.src;
+          img.onload = () => {
+            img.classList.add('loaded');
+            img.removeAttribute('data-src');
+          };
+          observer.unobserve(img);
         }
+      });
+    }, {
+      rootMargin: '200px'
     });
-}
 
-/**
- * Initialize search functionality
- */
-function initSearch() {
-    const searchInput = document.getElementById('menu-search');
-    const searchButton = document.getElementById('search-button');
-    if (!searchInput || !searchButton) return;
-    
-    const menuItems = document.querySelectorAll('.menu-item');
-    
-    // Create search results container
-    const searchResultsContainer = document.createElement('div');
-    searchResultsContainer.className = 'search-results-container';
-    document.querySelector('main').prepend(searchResultsContainer);
-    
-    // Create search results grid
-    const searchResultsGrid = document.createElement('div');
-    searchResultsGrid.className = 'search-results-grid';
-    searchResultsContainer.appendChild(searchResultsGrid);
-    
-    // Create no results message
-    const noResults = document.createElement('div');
-    noResults.className = 'no-results';
-    noResults.textContent = 'No items found matching your search';
-    searchResultsContainer.appendChild(noResults);
-    
-    // Create search info element
-    const searchInfo = document.createElement('p');
-    searchInfo.className = 'search-results-info';
-    searchInfo.style.display = 'none';
-    searchResultsContainer.appendChild(searchInfo);
-    
-    // Hide initially
-    searchResultsContainer.style.display = 'none';
-    
-    function performSearch() {
-        const searchTerm = searchInput.value.trim().toLowerCase();
-        let foundItems = 0;
-        
-        // Clear previous results
-        searchResultsGrid.innerHTML = '';
-        
-        if (searchTerm === '') {
-            // Show all original content if search is empty
-            searchResultsContainer.style.display = 'none';
-            document.querySelectorAll('.category').forEach(cat => {
-                cat.style.display = '';
-            });
-            document.querySelectorAll('.menu-item').forEach(item => {
-                item.style.display = '';
-            });
-            searchInfo.style.display = 'none';
-            noResults.style.display = 'none';
-            return;
-        }
-        
-        // Hide all original categories and items
-        document.querySelectorAll('.category').forEach(cat => {
-            cat.style.display = 'none';
-        });
-        
-        // Show search results container
-        searchResultsContainer.style.display = 'block';
-        
-        // Search through menu items
-        menuItems.forEach(item => {
-            const itemName = item.querySelector('.item-name').textContent.toLowerCase();
-            const itemDesc = item.querySelector('.item-description').textContent.toLowerCase();
-            const itemTags = Array.from(item.querySelectorAll('.tag')).map(tag => tag.textContent.toLowerCase());
-            
-            if (itemName.includes(searchTerm) || 
-                itemDesc.includes(searchTerm) || 
-                itemTags.some(tag => tag.includes(searchTerm))) {
-                
-                // Clone the item to show in search results
-                const itemClone = item.cloneNode(true);
-                itemClone.style.display = '';
-                searchResultsGrid.appendChild(itemClone);
-                foundItems++;
-            }
-        });
-        
-        // Show search info
-        if (foundItems > 0) {
-            searchInfo.textContent = `Found ${foundItems} items matching "${searchTerm}"`;
-            searchInfo.style.display = 'block';
-            noResults.style.display = 'none';
-        } else {
-            searchInfo.style.display = 'none';
-            noResults.style.display = 'block';
-        }
-    }
-    
-    // Event listeners
-    searchInput.addEventListener('input', debounce(performSearch, 300));
-    searchButton.addEventListener('click', performSearch);
-    searchInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') performSearch();
+    lazyImages.forEach(img => imageObserver.observe(img));
+  } else {
+    // Fallback for older browsers
+    lazyImages.forEach(img => {
+      img.src = img.dataset.src;
+      img.onload = () => img.classList.add('loaded');
     });
-}
+  }
+});
 
-/**
- * Initialize lazy loading for images
- */
-function initImageLoading() {
-    const images = document.querySelectorAll('.item-image[data-src]');
-    if (images.length === 0) return;
-    
-    if ('IntersectionObserver' in window) {
-        const imageObserver = new IntersectionObserver((entries, observer) => {
-            entries.forEach(entry => {
-                if (entry.isIntersecting) {
-                    const img = entry.target;
-                    img.src = img.dataset.src;
-                    img.onload = () => {
-                        img.classList.add('loaded');
-                        img.removeAttribute('data-src');
-                    };
-                    observer.unobserve(img);
-                }
-            });
-        }, {
-            rootMargin: '200px'
-        });
-
-        images.forEach(img => imageObserver.observe(img));
-    } else {
-        // Fallback for older browsers
-        images.forEach(img => {
-            img.src = img.dataset.src;
-            img.onload = () => img.classList.add('loaded');
-        });
-    }
-}
-
-/**
- * Debounce function to limit how often a function can execute
- */
-function debounce(func, wait) {
-    let timeout;
-    return function() {
-        const context = this, args = arguments;
-        clearTimeout(timeout);
-        timeout = setTimeout(() => {
-            func.apply(context, args);
-        }, wait);
-    };
-}
-
-/**
- * Detect mobile devices
- */
-function detectMobile() {
-    if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
-        document.body.classList.add('is-mobile');
-    }
-}
+// Handle window resize
+window.addEventListener('resize', function() {
+  if (window.innerWidth > 992) {
+    document.getElementById('sidebar').classList.remove('active');
+    document.getElementById('mainContent').classList.remove('shifted');
+    document.body.classList.remove('sidebar-active');
+    document.querySelector('.menu-toggle').style.display = 'none';
+  } else {
+    document.querySelector('.menu-toggle').style.display = 'block';
+  }
+});
